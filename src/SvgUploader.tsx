@@ -1,21 +1,57 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
-const SVGUploader = () => {
-  const [svg, setSVG] = useState({ dataURL: null, fileName: null });
+interface ISVGUploaderProps {
+  selectedFileName?: string;
+  onDrop?: (fileNames: string[]) => void;
+}
+
+type File = {
+  dataURL: any;
+  name: string;
+  type: "svg" | "pdf";
+};
+
+const SVGUploader: React.FC<ISVGUploaderProps> = ({
+  selectedFileName,
+  onDrop,
+}) => {
+  const [file, setFile] = useState<File | undefined>();
   const [files, setFiles] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (selectedFileName === undefined) {
+      return;
+    }
+
+    const file = files.find((f) => f.name === selectedFileName);
+
+    if (file === undefined) {
+      setFile(undefined);
+
+      return;
+    }
+
+    if (file.type === "application/pdf") {
+      setFile({ dataURL: file, name: file.name, type: "pdf" });
+    } else {
+      const reader = new FileReader();
+
+      reader.onload = (event: any) => {
+        setFile({ dataURL: event.target.result, name: file.name, type: "svg" });
+      };
+
+      reader.readAsDataURL(file);
+    }
+  }, [selectedFileName]);
 
   const handleDrop = (event: any) => {
     event.preventDefault();
 
-    setFiles(event.dataTransfer.files);
-    //const file = event.dataTransfer.files[0];
-    // const reader = new FileReader();
+    const files = Array.from(event.dataTransfer.files) as any[];
 
-    // reader.onload = (event: any) => {
-    //   setSVG({ dataURL: event.target.result, fileName: file.name });
-    // };
+    setFiles(files);
 
-    // reader.readAsDataURL(file);
+    onDrop?.(files.map((f) => f.name));
   };
 
   const handleDragOver = (event: any) => {
@@ -26,18 +62,31 @@ const SVGUploader = () => {
     <div
       onDrop={handleDrop}
       onDragOver={handleDragOver}
-      style={{ width: "300px", height: "300px", border: "1px dashed black" }}
+      style={{ width: "768px", height: "600px", border: "1px dashed black" }}
     >
-      {svg.dataURL ? (
-        <div>
-          <img src={svg.dataURL} alt="Uploaded SVG" />
-          <p>File Name: {svg.fileName}</p>
-        </div>
+      {file ? (
+        <FileView file={file} />
       ) : (
-        <p>Drag and drop an SVG file here</p>
+        <p>Drag and drop a PDF/SVG files here</p>
       )}
     </div>
   );
 };
+
+const FileView = ({ file }: { file: File }) => (
+  <div className="h-full">
+    {file.type === "pdf" ? (
+      <embed
+        src={URL.createObjectURL(file.dataURL)}
+        width="100%"
+        height="100%"
+      />
+    ) : (
+      <img src={file.dataURL} alt="Uploaded SVG" />
+    )}
+
+    <p>File Name: {file.name}</p>
+  </div>
+);
 
 export default SVGUploader;
